@@ -1,4 +1,5 @@
 #include "modelo/Drone.hpp"
+#include "modelo/Veiculo.hpp"
 
 #include <mavsdk/mavsdk.hpp>
 #include <mavsdk/plugins/action/action.hpp>
@@ -199,16 +200,60 @@ void Drone::alterar_modo_de_voo(const std::string& modo) {
 
 // TODO (aluno): implemente aqui os demais comandos, sempre delegando para o
 // plugin Action e convertendo o Result em exceção, como acima:
-//
-//     void Drone::armar() {
-//         const auto resultado = impl_->acoes->arm();
-//         if (resultado != mavsdk::Action::Result::Success) { ... }
-//     }
-//
-//     void Drone::decolar(double altura_m) {
-//         impl_->acoes->set_takeoff_altitude(static_cast<float>(altura_m));
-//         const auto resultado = impl_->acoes->takeoff();
-//         ...
-//     }
+
+void Drone::armar() {
+    if(!impl_->acoes) {
+        throw ErroDeVeiculo("armar() chamado antes de conectar()");
+    }
+
+    const auto resultado = impl_->acoes->arm();
+    if(resultado != mavsdk::Action::Result::Success) {
+        throw ErroDeVeiculo("falha ao armar o drone: " + para_texto(resultado));
+    }
+}
+
+void Drone::desarmar() {
+    if(!impl_->acoes) {
+        throw ErroDeVeiculo("desarmar() chamado antes de conectar()");
+    }
+
+    const auto resultado = impl_->acoes->disarm();
+    if(resultado != mavsdk::Action::Result::Success) {
+        throw ErroDeVeiculo("falha ao desarmar o drone: " + para_texto(resultado));
+    }
+}
+
+void Drone::decolar(double altura_m) {
+    if(!impl_->acoes) {
+        throw ErroDeVeiculo("decolar() chamado antes de conectar()");
+    }
+
+    //tem que definir a altitude desejada antes de mandar decolar
+    impl_->acoes->set_takeoff_altitude(static_cast<float>(altura_m));
+    const auto resultado = impl_->acoes->takeoff();
+    if(resultado != mavsdk::Action::Result::Success) {
+        throw ErroDeVeiculo("falha ao decolar o drone: " + para_texto(resultado));
+    }
+}
+
+void Drone::pousar() {
+    if (!impl_->acoes) {
+        throw ErroDeVeiculo("pousar() chamado antes de conectar()");
+    }
+    const auto resultado = impl_->acoes->land();
+    if (resultado != mavsdk::Action::Result::Success) {
+        throw ErroDeVeiculo("falha ao pousar: " + para_texto(resultado));
+    }
+}
+
+void Drone::retornar_para_casa() {
+    if (!impl_->acoes) {
+        throw ErroDeVeiculo("retornar_para_casa() chamado antes de conectar()");
+    }
+    const auto resultado = impl_->acoes->return_to_launch();
+    if (resultado != mavsdk::Action::Result::Success) {
+        throw ErroDeVeiculo("falha ao ativar RTL: " + para_texto(resultado));
+    }
+}
 
 }  // namespace gcs

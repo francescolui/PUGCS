@@ -39,7 +39,13 @@ public:
     void conectar() override;
     void iniciar_telemetria() override;
     void alterar_modo_de_voo(const std::string& modo) override;
-
+    
+    void armar() override;
+    void desarmar() override;
+    void decolar(double altura_m) override;
+    void pousar() override;
+    void retornar_para_casa() override;
+    
 private:
     class Impl;  // esconde o MAVSDK deste cabeçalho
     std::unique_ptr<Impl> impl_;

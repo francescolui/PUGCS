@@ -90,21 +90,65 @@ public:
     }
 };
 
-/// Exemplo de comando deixado como exercício: o console trata NaoImplementado
-/// de forma amigável, então dá para registrar o esqueleto antes de implementar.
+class Armar : public Comando {
+public:
+    std::string nome() const override { return "armar"; }
+    std::string ajuda() const override { return "arma os motores do drone"; }
+
+    void executar(EstacaoDeControle& estacao, const std::vector<std::string>&) override {
+        estacao.veiculo().armar();
+        std::cout << "comando de armar enviado\n";
+    }
+};
+
 class Decolar : public Comando {
 public:
     std::string nome() const override { return "decolar"; }
     std::string uso() const override { return "decolar <altura_m>"; }
     std::string ajuda() const override {
-        return "[exercício] arma o drone e decola até a altura pedida";
+        return "arma o drone e decola ate a altura pedida";
     }
 
-    void executar(EstacaoDeControle&, const std::vector<std::string>&) override {
-        // TODO (aluno): validar a altura recebida, chamar veiculo().armar() e
-        // veiculo().decolar(altura) — métodos que você vai declarar em Veiculo e
-        // implementar em Drone — e avisar o usuário do resultado.
-        throw NaoImplementado("decolagem");
+    void executar(EstacaoDeControle& estacao,
+                  const std::vector<std::string>& argumentos) override {
+        if (argumentos.size() != 1) {
+            throw ErroDeComando("uso: " + uso());
+        }
+        double altura = 0.0;
+        try {
+            altura = std::stod(argumentos.front());
+        } catch (...) {
+            throw ErroDeComando("altura invalida: '" + argumentos.front() + "'");
+        }
+        if (altura <= 0.0) {
+            throw ErroDeComando("a altura deve ser maior que zero");
+        }
+
+        estacao.veiculo().armar();
+        estacao.veiculo().decolar(altura);
+        std::cout << "comando de decolagem para " << altura << "m enviado\n";
+    }
+};
+
+class Pousar : public Comando {
+public:
+    std::string nome() const override { return "pousar"; }
+    std::string ajuda() const override { return "inicia o pouso no local atual"; }
+
+    void executar(EstacaoDeControle& estacao, const std::vector<std::string>&) override {
+        estacao.veiculo().pousar();
+        std::cout << "comando de pouso enviado\n";
+    }
+};
+
+class Rtl : public Comando {
+public:
+    std::string nome() const override { return "rtl"; }
+    std::string ajuda() const override { return "retorna ao ponto de decolagem (Return To Launch)"; }
+
+    void executar(EstacaoDeControle& estacao, const std::vector<std::string>&) override {
+        estacao.veiculo().retornar_para_casa();
+        std::cout << "comando RTL enviado\n";
     }
 };
 
@@ -118,6 +162,8 @@ public:
     }
 };
 
+
+
 }  // namespace
 
 RegistroDeComandos comandos_padrao() {
@@ -127,7 +173,10 @@ RegistroDeComandos comandos_padrao() {
     registro.registrar(std::make_unique<Modo>());
     registro.registrar(std::make_unique<Plotar>());
     registro.registrar(std::make_unique<Horizonte>());
+    registro.registrar(std::make_unique<Armar>());
     registro.registrar(std::make_unique<Decolar>());
+    registro.registrar(std::make_unique<Pousar>());
+    registro.registrar(std::make_unique<Rtl>());
     registro.registrar(std::make_unique<Sair>());
     return registro;
 }
