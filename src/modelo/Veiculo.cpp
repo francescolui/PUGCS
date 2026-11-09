@@ -76,6 +76,11 @@ void VeiculoSimulado::laco_de_telemetria() {
             estado.atitude.arfagem = 10.0 * std::sin(t / 3.0);
             estado.atitude.guinada = std::fmod(t * 10.0, 360.0);
             estado.posicao.altitude_relativa_m = 10.0 + 5.0 * std::sin(t / 5.0);
+            //oq adicionamos
+            estado.velocidade.velocidade_solo_ms = 4.5 + std::cos(t / 4.0);
+            estado.velocidade.taxa_subida_ms = std::cos(t / 5.0);
+            estado.gps.num_satelites = 14;
+            //----------------------//
             estado.bateria.tensao_v = 12.4;
             estado.bateria.percentual = std::max(0.0, 100.0 - t);
         });

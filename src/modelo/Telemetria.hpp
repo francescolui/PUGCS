@@ -39,6 +39,16 @@ struct Bateria {
 /// TODO (aluno): acrescente os campos que o seu grupo for usar — velocidade no
 /// solo, taxa de subida, número de satélites, qualidade do enlace de rádio,
 /// distância até o ponto de decolagem, estado dos sensores...
+struct Velocidade {
+    double velocidade_solo_ms = 0.0;
+    double taxa_subida_ms = 0.0;
+};
+
+struct GpsInfo {
+    int num_satelites = 0;
+    int tipo_fixo = 0;
+};
+
 struct EstadoVeiculo {
     std::string modo_de_voo = "DESCONHECIDO";
     bool armado = false;
@@ -46,9 +56,10 @@ struct EstadoVeiculo {
     Atitude atitude{};
     Posicao posicao{};
     Bateria bateria{};
+    Velocidade velocidade{};
+    GpsInfo gps{};
     Instante instante = std::chrono::steady_clock::now();
 
-    /// Uma linha legível, usada pelo comando `status`.
     std::string resumo() const;
 };
 

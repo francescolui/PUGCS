@@ -14,6 +14,8 @@ std::string EstadoVeiculo::resumo() const {
           << " alt_rel=" << std::setw(7) << posicao.altitude_relativa_m << " m"
           << " rolagem=" << std::setw(6) << atitude.rolagem << " deg"
           << " arfagem=" << std::setw(6) << atitude.arfagem << " deg"
+          << " vel=" << std::setw(4) << velocidade.velocidade_solo_ms << " m/s"
+          << " sats=" << std::setw(2) << gps.num_satelites
           << " bat=" << std::setw(5) << bateria.percentual << " %";
     return fluxo.str();
 }

@@ -144,6 +144,23 @@ void Drone::iniciar_telemetria() {
     //   subscribe_heading, subscribe_rc_status, subscribe_health.
     // Se a taxa de atualização vier baixa, dê uma olhada nos métodos
     // set_rate_* do plugin Telemetry (o ArduPilot não implementa todos).
+
+    // Adiciona dentro de Drone::iniciar_telemetria():
+
+    telemetria.subscribe_velocity_ned([this](mavsdk::Telemetry::VelocityNed vel) {
+        atualizar([&vel](EstadoVeiculo& estado) {
+            estado.velocidade.velocidade_solo_ms = std::sqrt(vel.north_m_s * vel.north_m_s + 
+                                                            vel.east_m_s * vel.east_m_s);
+            estado.velocidade.taxa_subida_ms = -vel.down_m_s;
+        });
+    });
+
+    telemetria.subscribe_gps_info([this](mavsdk::Telemetry::GpsInfo gps) {
+        atualizar([&gps](EstadoVeiculo& estado) {
+            estado.gps.num_satelites = gps.num_satellites;
+            estado.gps.tipo_fixo = static_cast<int>(gps.fix_type);
+        });
+    });
 }
 
 void Drone::alterar_modo_de_voo(const std::string& modo) {
