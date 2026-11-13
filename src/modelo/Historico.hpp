@@ -9,6 +9,7 @@
 #include <functional>
 #include <mutex>
 #include <vector>
+#include <string>
 
 #include "modelo/Telemetria.hpp"
 
@@ -46,6 +47,7 @@ public:
 
     // TODO (aluno): exportar o histórico para CSV/JSON e analisar o voo depois
     // (`void exportar_csv(const std::string& caminho) const;`).
+    void exportar_csv(const std::string& caminho) const;
 
 private:
     mutable std::mutex mutex_;

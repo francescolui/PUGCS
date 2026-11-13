@@ -11,6 +11,7 @@
 #include <map>
 #include <sstream>
 #include <utility>
+#include <cmath>
 
 namespace gcs {
 namespace {

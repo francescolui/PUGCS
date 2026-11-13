@@ -101,6 +101,17 @@ public:
     }
 };
 
+class Desarmar : public Comando {
+public:
+    std::string nome() const override { return "desarmar"; }
+    std::string ajuda() const override { return "desarma os motores do drone"; }
+
+    void executar(EstacaoDeControle& estacao, const std::vector<std::string>&) override {
+        estacao.veiculo().desarmar();
+        std::cout << "comando de desarmar enviado\n";
+    }
+};
+
 class Decolar : public Comando {
 public:
     std::string nome() const override { return "decolar"; }
@@ -152,6 +163,37 @@ public:
     }
 };
 
+class Limpar : public Comando {
+public:
+    std::string nome() const override { return "limpar"; }
+    std::string ajuda() const override { return "apaga o historico de telemetria"; }
+
+    void executar(EstacaoDeControle& estacao, const std::vector<std::string>&) override {
+        estacao.historico().limpar();
+        std::cout << "historico limpo\n";
+    }
+};
+
+class Gravar : public Comando {
+public:
+    std::string nome() const override { return "gravar"; }
+    std::string uso() const override { return "gravar <arquivo.csv>"; }
+    std::string ajuda() const override { return "salva o historico de telemetria em CSV"; }
+
+    void executar(EstacaoDeControle& estacao,
+                  const std::vector<std::string>& argumentos) override {
+        if (argumentos.size() != 1) {
+            throw ErroDeComando("uso: " + uso());
+        }
+        try {
+            estacao.historico().exportar_csv(argumentos.front());
+        } catch (const std::exception& erro) {
+            throw ErroDeComando(erro.what());
+        }
+        std::cout << "historico exportado para '" << argumentos.front() << "'\n";
+    }
+};
+
 class Sair : public Comando {
 public:
     std::string nome() const override { return "sair"; }
@@ -161,8 +203,6 @@ public:
         estacao.encerrar();
     }
 };
-
-
 
 }  // namespace
 
@@ -174,9 +214,12 @@ RegistroDeComandos comandos_padrao() {
     registro.registrar(std::make_unique<Plotar>());
     registro.registrar(std::make_unique<Horizonte>());
     registro.registrar(std::make_unique<Armar>());
+    registro.registrar(std::make_unique<Desarmar>());
     registro.registrar(std::make_unique<Decolar>());
     registro.registrar(std::make_unique<Pousar>());
     registro.registrar(std::make_unique<Rtl>());
+    registro.registrar(std::make_unique<Limpar>());
+    registro.registrar(std::make_unique<Gravar>());
     registro.registrar(std::make_unique<Sair>());
     return registro;
 }

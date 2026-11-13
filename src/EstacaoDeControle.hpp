@@ -26,6 +26,7 @@ public:
     void executar();
 
     Veiculo& veiculo() { return *veiculo_; }
+    Historico& historico() { return historico_; }
     const Historico& historico() const { return historico_; }
     RegistroDeComandos& comandos() { return comandos_; }
 
