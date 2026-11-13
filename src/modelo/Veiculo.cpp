@@ -70,17 +70,21 @@ void VeiculoSimulado::laco_de_telemetria() {
     while (!parar_) {
         const double t = segundos_entre(inicio, std::chrono::steady_clock::now());
         atualizar([t](EstadoVeiculo& estado) {
-            estado.em_voo = true;
-            estado.armado = true;
-            estado.atitude.rolagem = 25.0 * std::sin(t / 2.0);
-            estado.atitude.arfagem = 10.0 * std::sin(t / 3.0);
-            estado.atitude.guinada = std::fmod(t * 10.0, 360.0);
-            estado.posicao.altitude_relativa_m = 10.0 + 5.0 * std::sin(t / 5.0);
-            //oq adicionamos
-            estado.velocidade.velocidade_solo_ms = 4.5 + std::cos(t / 4.0);
-            estado.velocidade.taxa_subida_ms = std::cos(t / 5.0);
+            if (estado.em_voo) {
+                estado.atitude.rolagem = 25.0 * std::sin(t / 2.0);
+                estado.atitude.arfagem = 10.0 * std::sin(t / 3.0);
+                estado.atitude.guinada = std::fmod(t * 10.0, 360.0);
+                estado.posicao.altitude_relativa_m = 10.0 + 5.0 * std::sin(t / 5.0);
+                estado.velocidade.velocidade_solo_ms = 4.5 + std::cos(t / 4.0);
+                estado.velocidade.taxa_subida_ms = std::cos(t / 5.0);
+            } else {
+                estado.atitude.rolagem = 0.0;
+                estado.atitude.arfagem = 0.0;
+                estado.posicao.altitude_relativa_m = 0.0;
+                estado.velocidade.velocidade_solo_ms = 0.0;
+                estado.velocidade.taxa_subida_ms = 0.0;
+            }
             estado.gps.num_satelites = 14;
-            //----------------------//
             estado.bateria.tensao_v = 12.4;
             estado.bateria.percentual = std::max(0.0, 100.0 - t);
         });
