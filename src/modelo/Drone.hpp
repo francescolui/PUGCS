@@ -45,6 +45,7 @@ public:
     void decolar(double altura_m) override;
     void pousar() override;
     void retornar_para_casa() override;
+    void ir_para(double latitude_deg, double longitude_deg, float altitude_m) override;
     
 private:
     class Impl;  // esconde o MAVSDK deste cabeçalho

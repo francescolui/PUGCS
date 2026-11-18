@@ -153,6 +153,26 @@ public:
     }
 };
 
+class IrPara : public Comando {
+public:
+    std::string nome() const override { return "ir"; }
+    std::string ajuda() const override {
+        return "move o drone para coordenada: ir <lat> <lon> <alt_m>";
+    }
+
+    void executar(EstacaoDeControle& estacao, const std::vector<std::string>& args) override {
+        if (args.size() < 3) {
+            throw std::invalid_argument("uso: ir <latitude_deg> <longitude_deg> <altitude_m>");
+        }
+        const double lat = std::stod(args[0]);
+        const double lon = std::stod(args[1]);
+        const float alt = std::stof(args[2]);
+
+        estacao.veiculo().ir_para(lat, lon, alt);
+        std::cout << "indo para (" << lat << ", " << lon << ") a " << alt << " m\n";
+    }
+};
+
 class Pousar : public Comando {
 public:
     std::string nome() const override { return "pousar"; }
@@ -228,6 +248,7 @@ RegistroDeComandos comandos_padrao() {
     registro.registrar(std::make_unique<Armar>());
     registro.registrar(std::make_unique<Desarmar>());
     registro.registrar(std::make_unique<Decolar>());
+    registro.registrar(std::make_unique<IrPara>());
     registro.registrar(std::make_unique<Pousar>());
     registro.registrar(std::make_unique<Rtl>());
     registro.registrar(std::make_unique<Limpar>());

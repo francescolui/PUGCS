@@ -52,7 +52,7 @@ VeiculoSimulado::VeiculoSimulado(std::string nome) : Veiculo(std::move(nome)) {}
 
 VeiculoSimulado::~VeiculoSimulado() {
     parar_ = true;
-    if (thread_.joinable()) {
+    if(thread_.joinable()) {
         thread_.join();
     }
 }
@@ -70,7 +70,7 @@ void VeiculoSimulado::laco_de_telemetria() {
     while (!parar_) {
         const double t = segundos_entre(inicio, std::chrono::steady_clock::now());
         atualizar([t](EstadoVeiculo& estado) {
-            if (estado.em_voo) {
+            if(estado.em_voo) {
                 estado.atitude.rolagem = 25.0 * std::sin(t / 2.0);
                 estado.atitude.arfagem = 10.0 * std::sin(t / 3.0);
                 estado.atitude.guinada = std::fmod(t * 10.0, 360.0);
@@ -133,6 +133,23 @@ void VeiculoSimulado::pousar() {
 void VeiculoSimulado::retornar_para_casa() {
     atualizar([](EstadoVeiculo& estado) {
         estado.modo_de_voo = "RTL";
+    });
+}
+
+void VeiculoSimulado::ir_para(double latitude_deg, double longitude_deg, float altitude_m) {
+    const EstadoVeiculo atual = estado();
+    if(!atual.armado || !atual.em_voo) {
+        throw std::runtime_error("veiculo precisa estar armado e em voo para ir_para");
+    }
+    if(altitude_m <= 0.0f) {
+        throw std::invalid_argument("altitude de destino deve ser positiva");
+    }
+
+    atualizar([latitude_deg, longitude_deg, altitude_m](EstadoVeiculo& e) {
+        e.posicao.latitude = latitude_deg;
+        e.posicao.longitude = longitude_deg;
+        e.posicao.altitude_relativa_m = altitude_m;
+        e.modo_de_voo = "GUIDED";
     });
 }
 
