@@ -82,3 +82,16 @@ if(GCS_COM_MAVSDK)
     target_link_libraries(mini_gcs PRIVATE MAVSDK::mavsdk Threads::Threads imgui)
     target_compile_options(mini_gcs PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+enable_testing()
+add_executable(testes
+    tests/testes.cpp
+    src/modelo/Telemetria.cpp
+    src/modelo/Historico.cpp
+    src/visual/Painel.cpp
+    src/visual/GraficoTempo.cpp
+    src/visual/HorizonteArtificial.cpp
+)
+target_include_directories(testes PRIVATE src)
+target_compile_features(testes PRIVATE cxx_std_17)
+target_compile_options(testes PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME testes_unitarios COMMAND testes)
