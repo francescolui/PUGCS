@@ -44,9 +44,13 @@ void PainelImGui::exibir(const Historico& historico) const {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // Janela principal: valores atuais e o gráfico ocupando o resto.
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            glfwSetWindowShouldClose(janela, GLFW_TRUE);
+        }
         ImGui::Begin(titulo_.c_str());
-
+        if (ImGui::Button("Voltar ao console")) {
+            glfwSetWindowShouldClose(janela, GLFW_TRUE);
+        }
         bool recebeu = false;
         const EstadoVeiculo estado = historico.ultimo(&recebeu);
         if (!recebeu) {
@@ -57,12 +61,11 @@ void PainelImGui::exibir(const Historico& historico) const {
             ImGui::Text("Modo:     %s", estado.modo_de_voo.c_str());
         }
 
-        // Série da altitude na janela de tempo guardada pelo Historico.
+       
         const Historico::Serie serie = historico.serie(
             [](const EstadoVeiculo& e) { return e.posicao.altitude_relativa_m; });
 
-        // BeginPlot devolve false quando o gráfico não deve ser desenhado.
-        // EndPlot só pode ser chamado se BeginPlot devolveu true.
+
         if (!serie.vazia() && ImPlot::BeginPlot("Altitude relativa", ImVec2(-1, -1))) {
             ImPlot::SetupAxes("tempo (s)", "altitude (m)");
             ImPlot::PlotLine("altitude",
@@ -84,7 +87,7 @@ void PainelImGui::exibir(const Historico& historico) const {
         glfwSwapBuffers(janela);
     }
 
-    // Ordem inversa da criação: ImPlot depende do ImGui.
+   
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImPlot::DestroyContext();
