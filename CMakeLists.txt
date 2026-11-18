@@ -4,44 +4,73 @@ project(mini_gcs LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)  # ajuda o clangd/VS Code a entender o projeto
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# MAVSDK (C++) — instalação explicada em INSTALACAO.md.
-# Com o pacote .deb instalado no sistema, o find_package acha sozinho em
-# /usr/lib/cmake/MAVSDK. Também procuramos em ~/.local, para quem instalou sem
-# sudo; e dá para apontar outro prefixo com -DCMAKE_PREFIX_PATH=<caminho>.
-list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local")
-find_package(MAVSDK REQUIRED)
-find_package(Threads REQUIRED)
-message(STATUS "MAVSDK ${MAVSDK_VERSION} encontrado em ${MAVSDK_DIR}")
+# Liga/desliga a aplicação completa (exige MAVSDK).
+# Para testar só o painel: cmake -S . -B build -DGCS_COM_MAVSDK=OFF
+option(GCS_COM_MAVSDK "Compila a GCS completa (exige MAVSDK)" ON)
 
-add_executable(mini_gcs
-    src/main.cpp
-    src/EstacaoDeControle.cpp
-    src/modelo/Telemetria.cpp
-    src/modelo/Veiculo.cpp
-    src/modelo/Drone.cpp
-    src/modelo/Historico.cpp
-    src/cli/Comando.cpp
-    src/cli/ComandosPadrao.cpp
-    src/cli/Console.cpp
-    src/visual/Painel.cpp
-    src/visual/GraficoTempo.cpp
-    src/visual/HorizonteArtificial.cpp
+include(FetchContent)
+
+# ---------------------------------------------------------------------------
+# Janela: GLFW + Dear ImGui (não precisam do MAVSDK)
+# ---------------------------------------------------------------------------
+find_package(OpenGL REQUIRED)
+
+FetchContent_Declare(glfw
+  GIT_REPOSITORY https://github.com/glfw/glfw.git
+  GIT_TAG 3.4
 )
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(glfw)
 
-# Os #include do projeto são relativos a src/ (ex.: "modelo/Veiculo.hpp").
-target_include_directories(mini_gcs PRIVATE src)
+FetchContent_Declare(imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG v1.91.6
+)
+FetchContent_MakeAvailable(imgui)
 
-target_link_libraries(mini_gcs PRIVATE MAVSDK::mavsdk Threads::Threads)
+add_library(imgui STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
+target_include_directories(imgui PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+)
+target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
 
-target_compile_options(mini_gcs PRIVATE -Wall -Wextra -Wpedantic)
 
-# Se o MAVSDK estiver fora dos diretórios padrão do sistema (p.ex. em ~/.local),
-# gravamos o caminho da biblioteca no executável para que ele rode sem precisar
-# de LD_LIBRARY_PATH.
-get_filename_component(MAVSDK_LIB_DIR "${MAVSDK_DIR}/../.." ABSOLUTE)
-list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${MAVSDK_LIB_DIR}" _indice_sistema)
-if(_indice_sistema EQUAL -1)
-    set_target_properties(mini_gcs PROPERTIES BUILD_RPATH "${MAVSDK_LIB_DIR}")
+# ---------------------------------------------------------------------------
+# Aplicação completa: só configura se GCS_COM_MAVSDK=ON
+# ---------------------------------------------------------------------------
+if(GCS_COM_MAVSDK)
+    list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local")
+    find_package(MAVSDK REQUIRED)
+    find_package(Threads REQUIRED)
+
+    add_executable(mini_gcs
+        src/main.cpp
+        src/EstacaoDeControle.cpp
+        src/modelo/Telemetria.cpp
+        src/modelo/Veiculo.cpp
+        src/modelo/Drone.cpp
+        src/modelo/Historico.cpp
+        src/cli/Comando.cpp
+        src/cli/ComandosPadrao.cpp
+        src/cli/Console.cpp
+        src/visual/Painel.cpp
+        src/visual/GraficoTempo.cpp
+        src/visual/HorizonteArtificial.cpp
+        src/visual/PainelImGui.cpp
+    )
+    target_include_directories(mini_gcs PRIVATE src)
+    target_link_libraries(mini_gcs PRIVATE MAVSDK::mavsdk Threads::Threads imgui)
+    target_compile_options(mini_gcs PRIVATE -Wall -Wextra -Wpedantic)
 endif()
