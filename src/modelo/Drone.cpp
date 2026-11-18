@@ -4,7 +4,6 @@
 #include <mavsdk/mavsdk.hpp>
 #include <mavsdk/plugins/action/action.hpp>
 #include <mavsdk/plugins/telemetry/telemetry.hpp>
-#include <mavsdk/plugins/mavlink_passthrough/mavlink_passthrough.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -13,7 +12,6 @@
 #include <sstream>
 #include <utility>
 #include <cmath>
-#include <functional>
 
 namespace gcs {
 namespace {
@@ -63,7 +61,6 @@ public:
     std::shared_ptr<mavsdk::System> sistema;
     std::unique_ptr<mavsdk::Telemetry> telemetria;
     std::unique_ptr<mavsdk::Action> acoes;
-    std::unique_ptr<mavsdk::MavlinkPassthrough> passthrough;
 };
 
 Drone::Drone(std::string nome, std::string endereco)
@@ -92,7 +89,6 @@ void Drone::conectar() {
     impl_->sistema = sistema.value();
     impl_->telemetria = std::make_unique<mavsdk::Telemetry>(impl_->sistema);
     impl_->acoes = std::make_unique<mavsdk::Action>(impl_->sistema);
-    impl_->passthrough = std::make_unique<mavsdk::MavlinkPassthrough>(impl_->sistema);
     std::cout << "[" << nome() << "] conectado." << std::endl;
 }
 
@@ -186,26 +182,16 @@ void Drone::alterar_modo_de_voo(const std::string& modo) {
         {"HOLD", [&acoes] { return acoes.hold(); }},
         {"LAND", [&acoes] { return acoes.land(); }},
     };
-    
-    const std::map<std::string, uint32_t> modos_personalizados{
-        {"GUIDED", 4},
-        {"AUTO", 3},
-        {"LOITER", 5},
-        {"STABILIZE", 0},
-    };
 
     const std::string alvo = para_maiusculas(modo);
     const auto encontrado = acoes_por_modo.find(alvo);
-    if (encontrado == acoes_por_modo.end() && modos_personalizados.find(alvo) == modos_personalizados.end()) {
+    if (encontrado == acoes_por_modo.end()) {
         std::string disponiveis;
         for (const auto& par : acoes_por_modo) {
             disponiveis += (disponiveis.empty() ? "" : ", ") + par.first;
         }
-        for (const auto& par : modos_personalizados) {
-            disponiveis += (disponiveis.empty() ? "" : ", ") + par.first;
-        }
-    }
         throw NaoImplementado("modo '" + alvo + "'; disponíveis: " + disponiveis);
+    }
 
     const mavsdk::Action::Result resultado = encontrado->second();
     if (resultado != mavsdk::Action::Result::Success) {
