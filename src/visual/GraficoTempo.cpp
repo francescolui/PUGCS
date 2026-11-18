@@ -65,19 +65,41 @@ std::string GraficoTempo::quadro(const Historico& historico) const {
     minimo -= folga;
     maximo += folga;
 
-    // 3. Pinta os pontos em uma grade de caracteres.
+    // 3. Pinta os pontos e interpola segmentos entre amostras consecutivas.
     std::vector<std::string> grade(static_cast<std::size_t>(altura_),
                                    std::string(static_cast<std::size_t>(largura_), ' '));
     const double duracao = std::max(1e-6, fim - inicio);
     const double amplitude = std::max(1e-6, maximo - minimo);
+
+    int col_anterior = -1;
+    int lin_anterior = -1;
+
     for (std::size_t i = 0; i < tempos.size(); ++i) {
         const int coluna = static_cast<int>(
             std::lround((tempos[i] - inicio) / duracao * (largura_ - 1)));
         const int linha = static_cast<int>(
             std::lround((maximo - valores[i]) / amplitude * (altura_ - 1)));
+
+        if (col_anterior >= 0 && lin_anterior >= 0) {
+            const int passos = std::max(std::abs(coluna - col_anterior),
+                                        std::abs(linha - lin_anterior));
+            for (int p = 1; p < passos; ++p) {
+                const double t = static_cast<double>(p) / passos;
+                const int c = static_cast<int>(std::lround(col_anterior + t * (coluna - col_anterior)));
+                const int l = static_cast<int>(std::lround(lin_anterior + t * (linha - lin_anterior)));
+                if (c >= 0 && c < largura_ && l >= 0 && l < altura_ &&
+                    grade[static_cast<std::size_t>(l)][static_cast<std::size_t>(c)] == ' ') {
+                    grade[static_cast<std::size_t>(l)][static_cast<std::size_t>(c)] = '.';
+                }
+            }
+        }
+
         if (coluna >= 0 && coluna < largura_ && linha >= 0 && linha < altura_) {
             grade[static_cast<std::size_t>(linha)][static_cast<std::size_t>(coluna)] = MARCA[0];
         }
+
+        col_anterior = coluna;
+        lin_anterior = linha;
     }
 
     // 4. Monta o texto final. Cada linha termina com LIMPAR_LINHA para apagar
@@ -116,6 +138,33 @@ const std::map<std::string, GraficoTempo::Campo>& campos_disponiveis() {
         {"bateria",
          {"Bateria", "%",
           [](const EstadoVeiculo& estado) { return estado.bateria.percentual; }}},
+        {"velocidade",
+         {"Velocidade no solo", "m/s",
+          [](const EstadoVeiculo& e) { return e.velocidade.velocidade_solo_ms; }}},
+
+        {"subida",
+         {"Taxa de subida", "m/s",
+          [](const EstadoVeiculo& e) { return e.velocidade.taxa_subida_ms; }}},
+
+        {"satelites",
+         {"Satelites GPS", "sat",
+          [](const EstadoVeiculo& e) { return static_cast<double>(e.gps.num_satelites); }}},
+
+        {"tensao",
+         {"Tensao da bateria", "V",
+          [](const EstadoVeiculo& e) { return e.bateria.tensao_v; }}},
+
+        {"rumo",
+         {"Rumo (guinada)", "deg",
+          [](const EstadoVeiculo& e) { return e.atitude.guinada; }}},
+
+        {"rolagem",
+         {"Rolagem (roll)", "deg",
+          [](const EstadoVeiculo& e) { return e.atitude.rolagem; }}},
+
+        {"arfagem",
+         {"Arfagem (pitch)", "deg",
+          [](const EstadoVeiculo& e) { return e.atitude.arfagem; }}},
     };
     return catalogo;
 }
@@ -133,5 +182,6 @@ std::string nomes_dos_campos() {
 //  * marcar o instante da decolagem com uma coluna vertical;
 //  * mostrar duas grandezas comparáveis no mesmo gráfico (com legenda!);
 //  * descobrir a largura real do terminal em vez de usar um valor fixo.
+
 
 }  // namespace gcs
