@@ -7,6 +7,7 @@
 #include "modelo/Veiculo.hpp"
 #include "visual/GraficoTempo.hpp"
 #include "visual/HorizonteArtificial.hpp"
+#include "visual/PainelImGui.hpp"
 
 namespace gcs {
 namespace {
@@ -15,6 +16,17 @@ namespace {
 // Comandos de exemplo. Cada um é uma classe pequena; o console não sabe quais
 // existem, só pede ao registro o comando com o nome digitado.
 // ---------------------------------------------------------------------------
+class Janela : public Comando {
+public:
+    std::string nome() const override { return "janela"; }
+    std::string ajuda() const override { return "abre a janela grafica com a telemetria"; }
+
+    void executar(EstacaoDeControle& estacao, const std::vector<std::string>&) override {
+        const PainelImGui painel("Mini GCS");
+        painel.exibir(estacao.historico());
+        std::cout << "janela fechada\n";
+    }
+};
 
 class Ajuda : public Comando {
 public:
@@ -221,6 +233,7 @@ RegistroDeComandos comandos_padrao() {
     registro.registrar(std::make_unique<Limpar>());
     registro.registrar(std::make_unique<Gravar>());
     registro.registrar(std::make_unique<Sair>());
+    registro.registrar(std::make_unique<Janela>());
     return registro;
 }
 
