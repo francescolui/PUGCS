@@ -13,7 +13,7 @@ option(GCS_COM_MAVSDK "Compila a GCS completa (exige MAVSDK)" ON)
 include(FetchContent)
 
 # ---------------------------------------------------------------------------
-# Janela: GLFW + Dear ImGui (não precisam do MAVSDK)
+# Janela: GLFW + Dear ImGui + ImPlot (não precisam do MAVSDK)
 # ---------------------------------------------------------------------------
 find_package(OpenGL REQUIRED)
 
@@ -32,24 +32,12 @@ FetchContent_Declare(imgui
 )
 FetchContent_MakeAvailable(imgui)
 
-add_library(imgui STATIC
-    ${imgui_SOURCE_DIR}/imgui.cpp
-    ${imgui_SOURCE_DIR}/imgui_draw.cpp
-    ${imgui_SOURCE_DIR}/imgui_tables.cpp
-    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-)
-target_include_directories(imgui PUBLIC
-    ${imgui_SOURCE_DIR}
-    ${imgui_SOURCE_DIR}/backends
-)
-target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
 FetchContent_Declare(implot
   GIT_REPOSITORY https://github.com/epezent/implot.git
-  GIT_TAG TAG_DO_IMPLOT
+  GIT_TAG v0.16
 )
 FetchContent_MakeAvailable(implot)
+
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -65,7 +53,7 @@ target_include_directories(imgui PUBLIC
     ${imgui_SOURCE_DIR}/backends
     ${implot_SOURCE_DIR}
 )
-
+target_link_libraries(imgui PUBLIC glfw OpenGL::GL)
 
 # ---------------------------------------------------------------------------
 # Aplicação completa: só configura se GCS_COM_MAVSDK=ON

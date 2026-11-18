@@ -7,6 +7,7 @@
 #include "modelo/Veiculo.hpp"
 #include "visual/GraficoTempo.hpp"
 #include "visual/HorizonteArtificial.hpp"
+#include "visual/PainelImGui.hpp"
 
 namespace gcs {
 namespace {
