@@ -49,6 +49,12 @@ struct GpsInfo {
     int tipo_fixo = 0;
 };
 
+struct RadioInfo {
+    int rssi = 0;           // intensidade do sinal (0 a 100 ou dBm)
+    int remrssi = 0;        // sinal remoto
+    bool conectado = false;
+};
+
 struct EstadoVeiculo {
     std::string modo_de_voo = "DESCONHECIDO";
     bool armado = false;
@@ -58,6 +64,8 @@ struct EstadoVeiculo {
     Bateria bateria{};
     Velocidade velocidade{};
     GpsInfo gps{};
+    Posicao home{};
+    RadioInfo radio{};
     Instante instante = std::chrono::steady_clock::now();
 
     std::string resumo() const;

@@ -1,17 +1,20 @@
+#define MAVSDK_ENABLE_MAVLINK_C_API
+
 #include "modelo/Drone.hpp"
 #include "modelo/Veiculo.hpp"
 
 #include <mavsdk/mavsdk.hpp>
 #include <mavsdk/plugins/action/action.hpp>
+#include <mavsdk/plugins/mavlink_passthrough/mavlink_passthrough.hpp>
 #include <mavsdk/plugins/telemetry/telemetry.hpp>
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <utility>
-#include <cmath>
 
 namespace gcs {
 namespace {
@@ -35,17 +38,17 @@ std::string para_texto(const T& valor) {
 }  // namespace
 
 std::string normalizar_endereco(const std::string& endereco) {
-    if (endereco.find("://") != std::string::npos) {
+    if(endereco.find("://") != std::string::npos) {
         return endereco;  // já está no formato de URL
     }
     const std::size_t separador = endereco.find(':');
-    if (separador == std::string::npos) {
+    if(separador == std::string::npos) {
         return endereco;
     }
     std::string esquema = endereco.substr(0, separador);
     const std::string resto = endereco.substr(separador + 1);
     // "tcp" é ambíguo para o MAVSDK; para falar com o SITL queremos "tcpout".
-    if (esquema == "tcp") {
+    if(esquema == "tcp") {
         esquema = "tcpout";
     }
     return esquema + "://" + resto;
@@ -61,6 +64,7 @@ public:
     std::shared_ptr<mavsdk::System> sistema;
     std::unique_ptr<mavsdk::Telemetry> telemetria;
     std::unique_ptr<mavsdk::Action> acoes;
+    std::unique_ptr<mavsdk::MavlinkPassthrough> passthrough;
 };
 
 Drone::Drone(std::string nome, std::string endereco)
@@ -75,13 +79,13 @@ void Drone::conectar() {
     std::cout << "[" << nome() << "] conectando em " << url << " ..." << std::endl;
 
     const mavsdk::ConnectionResult resultado = impl_->nucleo.add_any_connection(url);
-    if (resultado != mavsdk::ConnectionResult::Success) {
+    if(resultado != mavsdk::ConnectionResult::Success) {
         throw ErroDeVeiculo("não foi possível abrir " + url + ": " + para_texto(resultado));
     }
 
     // O primeiro autopiloto que aparecer na rede MAVLink é o nosso drone.
     const auto sistema = impl_->nucleo.first_autopilot(TEMPO_LIMITE_S);
-    if (!sistema) {
+    if(!sistema) {
         throw ErroDeVeiculo(
             "nenhum autopiloto respondeu em " + url + ". O SITL do ArduPilot está rodando?");
     }
@@ -89,18 +93,16 @@ void Drone::conectar() {
     impl_->sistema = sistema.value();
     impl_->telemetria = std::make_unique<mavsdk::Telemetry>(impl_->sistema);
     impl_->acoes = std::make_unique<mavsdk::Action>(impl_->sistema);
+    impl_->passthrough = std::make_unique<mavsdk::MavlinkPassthrough>(impl_->sistema);
     std::cout << "[" << nome() << "] conectado." << std::endl;
 }
 
 void Drone::iniciar_telemetria() {
-    if (!impl_->telemetria) {
+    if(!impl_->telemetria) {
         throw ErroDeVeiculo("iniciar_telemetria() antes de conectar()");
     }
     mavsdk::Telemetry& telemetria = *impl_->telemetria;
 
-    // Cada assinatura é um callback chamado pela thread do MAVSDK. Tudo que
-    // fazemos é traduzir o dado da biblioteca para o NOSSO modelo — assim o
-    // resto do programa não depende do MAVSDK.
     telemetria.subscribe_flight_mode([this](mavsdk::Telemetry::FlightMode modo) {
         const std::string texto = para_texto(modo);
         atualizar([&texto](EstadoVeiculo& estado) { estado.modo_de_voo = texto; });
@@ -126,8 +128,6 @@ void Drone::iniciar_telemetria() {
     telemetria.subscribe_battery([this](mavsdk::Telemetry::Battery bateria) {
         atualizar([&bateria](EstadoVeiculo& estado) {
             estado.bateria.tensao_v = bateria.voltage_v;
-            // No MAVSDK 4.x remaining_percent já vem de 0 a 100 (nas versões
-            // 1.x vinha de 0 a 1 — cuidado ao trocar de versão).
             estado.bateria.percentual = bateria.remaining_percent;
         });
     });
@@ -140,18 +140,9 @@ void Drone::iniciar_telemetria() {
         atualizar([em_voo](EstadoVeiculo& estado) { estado.em_voo = em_voo; });
     });
 
-    // TODO (aluno): assine o que mais a sua GCS precisar. A lista completa está
-    // em <mavsdk/plugins/telemetry/telemetry.hpp> — por exemplo:
-    //   subscribe_velocity_ned, subscribe_gps_info, subscribe_home,
-    //   subscribe_heading, subscribe_rc_status, subscribe_health.
-    // Se a taxa de atualização vier baixa, dê uma olhada nos métodos
-    // set_rate_* do plugin Telemetry (o ArduPilot não implementa todos).
-
-    // Adiciona dentro de Drone::iniciar_telemetria():
-
     telemetria.subscribe_velocity_ned([this](mavsdk::Telemetry::VelocityNed vel) {
         atualizar([&vel](EstadoVeiculo& estado) {
-            estado.velocidade.velocidade_solo_ms = std::sqrt(vel.north_m_s * vel.north_m_s + 
+            estado.velocidade.velocidade_solo_ms = std::sqrt(vel.north_m_s * vel.north_m_s +
                                                             vel.east_m_s * vel.east_m_s);
             estado.velocidade.taxa_subida_ms = -vel.down_m_s;
         });
@@ -166,41 +157,44 @@ void Drone::iniciar_telemetria() {
 }
 
 void Drone::alterar_modo_de_voo(const std::string& modo) {
-    if (!impl_->acoes) {
-        throw ErroDeVeiculo("alterar_modo_de_voo() antes de conectar()");
+    if(!impl_->passthrough) {
+        throw ErroDeVeiculo("alterar_modo_de_voo() chamado antes de conectar()");
     }
-    mavsdk::Action& acoes = *impl_->acoes;
 
-    // O MAVSDK não expõe "troque para o modo X" de forma genérica: ele oferece
-    // ações de alto nível. Mapeamos três delas como amostra.
-    //
-    // TODO (aluno): complete o mapa (GUIDED, AUTO, LOITER, STABILIZE...). Para
-    // os modos sem ação equivalente, use o plugin MavlinkPassthrough e envie
-    // MAV_CMD_DO_SET_MODE com o número do modo do ArduPilot.
-    const std::map<std::string, std::function<mavsdk::Action::Result()>> acoes_por_modo{
-        {"RTL", [&acoes] { return acoes.return_to_launch(); }},
-        {"HOLD", [&acoes] { return acoes.hold(); }},
-        {"LAND", [&acoes] { return acoes.land(); }},
+    const std::string modo_upper = para_maiusculas(modo);
+
+    // Tabela oficial custom_mode do ArduCopter
+    static const std::map<std::string, uint32_t> modos_arducopter = {
+        {"STABILIZE", 0},
+        {"ACRO",      1},
+        {"ALT_HOLD",  2},
+        {"AUTO",      3},
+        {"GUIDED",    4},
+        {"LOITER",    5},
+        {"RTL",       6},
+        {"CIRCLE",    7},
+        {"LAND",      9},
+        {"POSHOLD",   16},
+        {"BRAKE",     17}
     };
 
-    const std::string alvo = para_maiusculas(modo);
-    const auto encontrado = acoes_por_modo.find(alvo);
-    if (encontrado == acoes_por_modo.end()) {
-        std::string disponiveis;
-        for (const auto& par : acoes_por_modo) {
-            disponiveis += (disponiveis.empty() ? "" : ", ") + par.first;
-        }
-        throw NaoImplementado("modo '" + alvo + "'; disponíveis: " + disponiveis);
+    const auto it = modos_arducopter.find(modo_upper);
+    if(it == modos_arducopter.end()) {
+        throw ErroDeVeiculo("modo de voo desconhecido: " + modo);
     }
 
-    const mavsdk::Action::Result resultado = encontrado->second();
-    if (resultado != mavsdk::Action::Result::Success) {
-        throw ErroDeVeiculo("o autopiloto recusou o modo " + alvo + ": " + para_texto(resultado));
+    mavsdk::MavlinkPassthrough::CommandLong cmd{};
+    cmd.target_sysid = impl_->passthrough->get_target_sysid();
+    cmd.target_compid = impl_->passthrough->get_target_compid();
+    cmd.command = MAV_CMD_DO_SET_MODE;
+    cmd.param1 = static_cast<float>(MAV_MODE_FLAG_CUSTOM_MODE_ENABLED);
+    cmd.param2 = static_cast<float>(it->second);
+
+    const auto res = impl_->passthrough->send_command_long(cmd);
+    if(res != mavsdk::MavlinkPassthrough::Result::Success) {
+        throw ErroDeVeiculo("falha ao alterar modo de voo para " + modo_upper + ": " + para_texto(res));
     }
 }
-
-// TODO (aluno): implemente aqui os demais comandos, sempre delegando para o
-// plugin Action e convertendo o Result em exceção, como acima:
 
 void Drone::armar() {
     if(!impl_->acoes) {
@@ -229,7 +223,6 @@ void Drone::decolar(double altura_m) {
         throw ErroDeVeiculo("decolar() chamado antes de conectar()");
     }
 
-    //tem que definir a altitude desejada antes de mandar decolar
     impl_->acoes->set_takeoff_altitude(static_cast<float>(altura_m));
     const auto resultado = impl_->acoes->takeoff();
     if(resultado != mavsdk::Action::Result::Success) {
@@ -238,22 +231,40 @@ void Drone::decolar(double altura_m) {
 }
 
 void Drone::pousar() {
-    if (!impl_->acoes) {
+    if(!impl_->acoes) {
         throw ErroDeVeiculo("pousar() chamado antes de conectar()");
     }
     const auto resultado = impl_->acoes->land();
-    if (resultado != mavsdk::Action::Result::Success) {
+    if(resultado != mavsdk::Action::Result::Success) {
         throw ErroDeVeiculo("falha ao pousar: " + para_texto(resultado));
     }
 }
 
 void Drone::retornar_para_casa() {
-    if (!impl_->acoes) {
+    if(!impl_->acoes) {
         throw ErroDeVeiculo("retornar_para_casa() chamado antes de conectar()");
     }
     const auto resultado = impl_->acoes->return_to_launch();
-    if (resultado != mavsdk::Action::Result::Success) {
+    if(resultado != mavsdk::Action::Result::Success) {
         throw ErroDeVeiculo("falha ao ativar RTL: " + para_texto(resultado));
+    }
+}
+
+void Drone::ir_para(double latitude_deg, double longitude_deg, float altitude_m) {
+    if(!impl_->acoes) {
+        throw ErroDeVeiculo("ir_para() chamado antes de conectar()");
+    }
+    alterar_modo_de_voo("GUIDED");
+
+    const EstadoVeiculo atual = estado();
+    const float altitude_amsl =
+        atual.posicao.altitude_absoluta_m - atual.posicao.altitude_relativa_m + altitude_m;
+
+    const auto resultado = impl_->acoes->goto_location(
+        latitude_deg, longitude_deg, altitude_amsl, NAN);
+
+    if(resultado != mavsdk::Action::Result::Success) {
+        throw ErroDeVeiculo("falha ao enviar ir_para: " + para_texto(resultado));
     }
 }
 
