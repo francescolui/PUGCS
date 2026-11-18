@@ -1,0 +1,23 @@
+1.
+cd ~/ardupilot
+Tools/autotest/sim_vehicle.py -v ArduCopter --console --map
+2.
+flatpak run org.mavlink.qgroundcontrol
+3.
+cd ~/PUGCS
+./build/testes
+./build/mini_gcs --endereco tcp:127.0.0.1:5762
+4.
+status
+modo GUIDED
+armar
+decolar 20
+ir -35.3618 149.1652 609
+ir -35.3618 149.1675 624
+ir -35.3635 149.1675 614
+horizonte
+plotar altitude
+plotar velocidade
+gravar voo_demonstracao.csv
+rtl
+sair

@@ -103,6 +103,14 @@ void Drone::iniciar_telemetria() {
     }
     mavsdk::Telemetry& telemetria = *impl_->telemetria;
 
+    // Solicita explicitamente os streams MAVLink (necessário na SERIAL1 / portas auxiliares)
+    telemetria.set_rate_position(4.0);
+    telemetria.set_rate_attitude_euler(10.0);
+    telemetria.set_rate_battery(1.0);
+    telemetria.set_rate_gps_info(2.0);
+    telemetria.set_rate_velocity_ned(4.0);
+    telemetria.set_rate_in_air(2.0);
+
     telemetria.subscribe_flight_mode([this](mavsdk::Telemetry::FlightMode modo) {
         const std::string texto = para_texto(modo);
         atualizar([&texto](EstadoVeiculo& estado) { estado.modo_de_voo = texto; });
